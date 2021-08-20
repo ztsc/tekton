@@ -1,0 +1,12 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: Trigger
+metadata:
+  name: create-sign-base-image-trigger
+spec:
+  serviceAccountName: pipeline
+  bindings:
+    - ref: create-sign-base-image
+  template:
+    # In newer trigger versions the 'name' field will be deprecated and is
+    # replaced by 'ref' field.
+    name: create-sign-base-image

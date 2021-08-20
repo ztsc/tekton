@@ -1,0 +1,8 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: create-sign-base-image
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - triggerRef: create-sign-base-image-trigger
