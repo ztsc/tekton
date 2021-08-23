@@ -1,0 +1,172 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: ibm-build-tag-push
+  annotations:
+    description: Executes logic to build, tag and push a container image using the intermediate sha tag to the image-url
+    app.openshift.io/description: Executes logic to build, tag and push a container image using the intermediate sha tag to the image-url
+    app.openshift.io/vcs-uri: https://github.com/IBM/ibm-garage-tekton-tasks
+    app.openshift.io/vcs-ref: master
+  labels:
+    version: 0.0.0
+spec:
+  params:
+    - name: git-url
+    - name: git-revision
+      default: master
+    - name: source-dir
+      default: /source
+    - name: image-server
+      default: ""
+    - name: image-namespace
+      default: ""
+    - name: image-repository
+      default: ""
+    - name: image-tag
+      default: ""
+    - name: BUILDER_IMAGE
+      default: quay.io/buildah/stable:v1.15.0
+    - name: DOCKERFILE
+      default: ./Dockerfile
+    - name: CONTEXT
+      default: .
+    - name: TLSVERIFY
+      default: "false"
+    - name: FORMAT
+      default: "docker"
+    - name: STORAGE_DRIVER
+      description: Set buildah storage driver
+      default: overlay
+  results:
+    - name: APP_IMAGE
+    - description: Digest of the image just built.
+      name: IMAGE_DIGEST
+    - description: URL of the image just built.
+      name: IMAGE_URL           
+  volumes:
+    - name: varlibcontainers
+      emptyDir: {}
+    - name: source
+      emptyDir: {}
+  stepTemplate:
+    volumeMounts:
+      - name: source
+        mountPath: $(params.source-dir)
+  steps:
+    - name: git-clone
+      image: quay.io/ibmgaragecloud/alpine-git
+      env:
+        - name: GIT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: git-credentials
+              key: password
+              optional: true
+        - name: GIT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: git-credentials
+              key: username
+              optional: true
+      script: |
+        set +x
+        if [[ -n "${GIT_USERNAME}" ]] && [[ -n "${GIT_PASSWORD}" ]]; then
+            git clone "$(echo $(params.git-url) | awk -F '://' '{print $1}')://${GIT_USERNAME}:${GIT_PASSWORD}@$(echo $(params.git-url) | awk -F '://' '{print $2}')" $(params.source-dir)
+        else
+            set -x
+            git clone $(params.git-url) $(params.source-dir)
+        fi
+        set -x
+        cd $(params.source-dir)
+        git checkout $(params.git-revision)
+    - name: build
+      image: $(params.BUILDER_IMAGE)
+      workingDir: $(params.source-dir)
+      env:
+        - name: REGISTRY_USER
+          valueFrom:
+            secretKeyRef:
+              name: registry-access
+              key: REGISTRY_USER
+              optional: true
+        - name: REGISTRY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: registry-access
+              key: REGISTRY_PASSWORD
+              optional: true
+        - name: IBM_ENTITLED_REGISTRY_USER
+          valueFrom:
+            secretKeyRef:
+              name: ibm-entitled-registry-credentials
+              key: IBM_ENTITLED_REGISTRY_USER
+              optional: true
+        - name: IBM_ENTITLED_REGISTRY_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ibm-entitled-registry-credentials
+              key: IBM_ENTITLED_REGISTRY_PASSWORD
+              optional: true
+      volumeMounts:
+        - mountPath: /var/lib/containers
+          name: varlibcontainers
+      securityContext:
+        privileged: true
+      script: |
+        APP_IMAGE="$(params.image-server)/$(params.image-namespace)/$(params.image-repository):$(params.image-tag)"
+        if [[ -n "${IBM_ENTITLED_REGISTRY_USER}" ]] && [[ -n "${IBM_ENTITLED_REGISTRY_PASSWORD}" ]]; then
+          buildah login -u ${IBM_ENTITLED_REGISTRY_USER} -p ${IBM_ENTITLED_REGISTRY_PASSWORD} cp.icr.io
+          echo "buildah login -u \"${IBM_ENTITLED_REGISTRY_USER}\" -p \"xxxxx\" cp.icr.io"
+        fi
+        buildah --layers --storage-driver=$(params.STORAGE_DRIVER) bud --format=$(params.FORMAT) --tls-verify=$(params.TLSVERIFY) -f $(params.DOCKERFILE) -t ${APP_IMAGE} $(params.CONTEXT)
+        set +x
+        if [[ -n "${REGISTRY_USER}" ]] && [[ -n "${REGISTRY_PASSWORD}" ]] && [[ "$(params.image-server)" != "image-registry.openshift-image-registry.svc:5000"  ]]; then
+          buildah login -u "${REGISTRY_USER}" -p "${REGISTRY_PASSWORD}" "$(params.image-server)"
+          echo "buildah login -u \"${REGISTRY_USER}\" -p \"xxxxx\" \"$(params.image-server)\""
+        fi
+
+        set -x
+        buildah --storage-driver=$(params.STORAGE_DRIVER) push --tls-verify=$(params.TLSVERIFY) --digestfile /tekton/results/IMAGE_DIGEST ${APP_IMAGE} docker://${APP_IMAGE}
+        echo -n "${APP_IMAGE}">$(results.APP_IMAGE.path)
+    - image: bash
+      name: cat-of-digest
+      script: cat /tekton/results/IMAGE_DIGEST
+    - image: quay.io/buildah/stable
+      name: write-url
+      resources: {}
+      script: >
+        echo "docker.io/gkovan/base-quarkus-image" > $(results.IMAGE_URL.path)  
+    # - name: cosign
+    #   env:
+    #     - name: COSIGN_KEY
+    #       valueFrom:
+    #         secretKeyRef:
+    #           name: cosign-keys
+    #           key: cosign.key
+    #     - name: COSIGN_PASSWORD
+    #       valueFrom:
+    #         secretKeyRef:
+    #           name: cosign-keys
+    #           key: cosign.password              
+    #   image: gcr.io/projectsigstore/cosign/ci/cosign:v0.5.0 
+    #   securityContext:
+    #     privileged: true       
+    #   script: |
+    #     #!/busybox/env /busybox/sh
+    #     set +x
+    #     APP_IMAGE="$(params.image-server)/$(params.image-namespace)/$(params.image-repository):$(params.image-tag)"
+    #     echo "${COSIGN_KEY}" >> cosign.key
+    #     echo "### GK: printing out the cosign private key file:"
+    #     cat cosign.key
+    #     CMD="cosign sign -key cosign.key ${APP_IMAGE}"
+    #     echo "${CMD}"
+    #     echo "Attempting to sign image url:"
+    #     echo "${APP_IMAGE}"
+    #     ERR_MSG="Failed to sign ${APP_IMAGE}"
+    #     ${CMD} &> result
+    #     err=$?
+    #     cat result
+    #     if [[ ${err} -ne 0 ]]; then
+    #       echo "${ERR_MSG}"
+    #       exit 1
+    #     fi

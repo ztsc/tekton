@@ -1,0 +1,65 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: zzz
+  annotations:
+    description: description goes here
+  labels:
+    version: 0.0.0
+spec:
+  params:
+    - name: IMAGE
+      type: string      
+  results:
+    - description: Digest of the image just built.
+      name: IMAGE_DIGEST
+    - description: URL of the image just built.
+      name: IMAGE_URL           
+  steps:
+    # - image: bash
+    #   name: cat-of-digest
+    #   script: cat /tekton/results/IMAGE_DIGEST
+    - image: quay.io/buildah/stable
+      name: write-url
+      resources: {}
+      script: >
+        echo "docker.io/gkovan/base-quarkus-image" > $(results.IMAGE_URL.path)
+  volumes:
+    - emptyDir: {}
+      name: varlibcontainers
+  workspaces:
+    - name: source         
+    # - name: cosign
+    #   env:
+    #     - name: COSIGN_KEY
+    #       valueFrom:
+    #         secretKeyRef:
+    #           name: cosign-keys
+    #           key: cosign.key
+    #     - name: COSIGN_PASSWORD
+    #       valueFrom:
+    #         secretKeyRef:
+    #           name: cosign-keys
+    #           key: cosign.password              
+    #   image: gcr.io/projectsigstore/cosign/ci/cosign:v0.5.0 
+    #   securityContext:
+    #     privileged: true       
+    #   script: |
+    #     #!/busybox/env /busybox/sh
+    #     set +x
+    #     APP_IMAGE="$(params.image-server)/$(params.image-namespace)/$(params.image-repository):$(params.image-tag)"
+    #     echo "${COSIGN_KEY}" >> cosign.key
+    #     echo "### GK: printing out the cosign private key file:"
+    #     cat cosign.key
+    #     CMD="cosign sign -key cosign.key ${APP_IMAGE}"
+    #     echo "${CMD}"
+    #     echo "Attempting to sign image url:"
+    #     echo "${APP_IMAGE}"
+    #     ERR_MSG="Failed to sign ${APP_IMAGE}"
+    #     ${CMD} &> result
+    #     err=$?
+    #     cat result
+    #     if [[ ${err} -ne 0 ]]; then
+    #       echo "${ERR_MSG}"
+    #       exit 1
+    #     fi
