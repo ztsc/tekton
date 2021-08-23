@@ -1,0 +1,132 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: build-verify-deploy
+spec:
+  workspaces:
+  - name: shared-workspace
+  params:
+  - name: deployment-name
+    type: string
+    description: name of the deployment to be patched
+  - name: git-url
+    type: string
+    description: url of the git repo for the code of deployment
+  - name: git-revision
+    type: string
+    description: revision to be used from repo of the code for deployment
+    default: "main"
+  - name: IMAGE
+    type: string
+    description: image to be built from the code
+  tasks:
+  - name: fetch-repository
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: shared-workspace
+    params:
+    - name: url
+      value: $(params.git-url)
+    - name: subdirectory
+      value: ""
+    - name: deleteExisting
+      value: "true"
+    - name: revision
+      value: $(params.git-revision)
+  - name: build-source
+    taskRef:
+      name: build-source
+      kind: Task
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    runAfter:
+    - fetch-repository          
+  - name: build-image
+    taskRef:
+      name: buildah
+      kind: ClusterTask
+    params:
+    - name: TLSVERIFY
+      value: "false"
+    - name: IMAGE
+      value: $(params.IMAGE)
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    runAfter:
+    - build-source
+
+  - name: get-base-image
+    taskRef:
+      name: base-image
+    params:
+    - name: tlsverify
+      value: "false"
+    - name: image
+      value: $(params.IMAGE)
+    - name: base-image-label
+      value: "base.image"
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    runAfter:
+    - build-image
+
+  - name: verify-base-image
+    taskRef:
+      name: cosign
+    params:
+    - name: command
+      value: "verify"
+    - name: image
+      value: $(tasks.get-base-image.results.base-image)
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    runAfter:
+    - get-base-image
+
+  # - name: apply-opa-maintainers-policy
+  #   taskRef:
+  #     name: conftest
+  #   params:
+  #   - name: files
+  #     value: certificate-common-name.json # This file is created in ./ by verify-base-image task
+  #   - name: policy
+  #     value: "config/opa/maintainers.rego"
+  #   - name: args
+  #     value:
+  #       - --data
+  #       - MAINTAINERS.json
+  #       - --parser
+  #       - json
+  #   workspaces:
+  #   - name: source
+  #     workspace: shared-workspace
+  #   runAfter:
+  #   - verify-base-image
+
+  - name: apply-manifests
+    taskRef:
+      name: apply-manifests
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    runAfter:
+#    - apply-opa-maintainers-policy
+     - verify-base-image
+     
+  - name: update-deployment
+    taskRef:
+      name: update-deployment
+    params:
+    - name: deployment
+      value: $(params.deployment-name)
+    - name: IMAGE
+      value: $(params.IMAGE)
+    runAfter:
+    - apply-manifests

@@ -1,0 +1,27 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-source
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/tags: test
+spec:
+  description: >-
+    Build java source using maven
+  workspaces:
+  - name: source
+  steps:
+  - name: maven-build
+    workingDir: $(workspaces.source.path)
+    image: 'docker.io/maven:3.6.3-openjdk-11-slim'
+    command:
+      - mvn    
+    args:
+      - '-DskipTests'
+      - clean
+      - package
+    env:
+      - name: user.home
+        value: /home/tekton    

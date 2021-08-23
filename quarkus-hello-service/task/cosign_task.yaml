@@ -1,0 +1,59 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: cosign
+  labels:
+    app.kubernetes.io/version: "0.1.0"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+spec:
+  description: >-
+    These tasks make it possible to use cosign within your Tekton pipelines
+
+    cosign is a tool for signing and verifying software artifacts.
+
+  workspaces:
+  - name: source
+  params:
+  - name: command
+    type: string
+  - name: image
+    type: string
+  results:
+    - name: email
+      description: The email from the certificate common name in JSON format
+  steps:
+  - name: cosign
+    workingDir: $(workspaces.source.path)
+    image: gcr.io/projectsigstore/cosign/ci/cosign:v0.5.0
+    env:
+      - name: COSIGN_PUBLIC_KEY
+        valueFrom:
+          secretKeyRef:
+            name: signing-secrets
+            key: cosign.pub   
+    script: |
+      #!/busybox/env /busybox/sh
+      echo "${COSIGN_PUBLIC_KEY}" >> cosign.pub
+      echo "GK: Verify using the public key:"
+      cat cosign.pub
+      CMD="cosign $(params.command) -key cosign.pub $(params.image)"
+      echo "${CMD}"
+      ERR_MSG="Failed to $(params.command) $(params.image)"
+      ${CMD} &> result
+      err=$?
+      cat result
+      if [[ ${err} -ne 0 ]]; then
+        echo "${ERR_MSG}"
+        exit 1
+      fi
+  # - name: get-email
+  #   workingDir: $(workspaces.source.path)
+  #   image: image-registry.openshift-image-registry.svc:5000/openshift/cli:latest
+  #   script: |
+  #     #!/usr/bin/env bash
+  #     set -o errexit
+  #     CERT_CN=$(awk -F " " '/^Certificate subject/ {print substr($3, 2, length($3) - 2)}' result)
+  #     echo "{ \"certificate-common-name\": \"${CERT_CN}\" }" > $(results.email.path)
+  #     cat $(results.email.path)
+  #     cat $(results.email.path) > ./certificate-common-name.json
