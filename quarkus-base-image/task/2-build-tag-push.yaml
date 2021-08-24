@@ -135,12 +135,7 @@ spec:
     - image: bash
       name: cat-of-digest
       script: cat /tekton/results/IMAGE_DIGEST
-    - image: quay.io/buildah/stable
-      name: write-url
-      resources: {}
-      script: >
-         echo "GK"
-#        echo "docker.io/gkovan/quarkus-base-image" > $(results.IMAGE_URL.path)  
+
     # - name: cosign
     #   env:
     #     - name: COSIGN_KEY
