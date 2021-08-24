@@ -1,8 +1,8 @@
 apiVersion: triggers.tekton.dev/v1alpha1
 kind: EventListener
 metadata:
-  name: ztsc-quarkus-hello-service-app
+  name: quarkus-hello-service-app
 spec:
   serviceAccountName: pipeline
   triggers:
-    - triggerRef: ztsc-quarkus-hello-service-app-trigger
+    - triggerRef: quarkus-hello-service-app-trigger

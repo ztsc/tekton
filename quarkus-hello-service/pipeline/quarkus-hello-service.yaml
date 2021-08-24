@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: build-verify-deploy
+  name: quarkus-hello-service
 spec:
   workspaces:
   - name: shared-workspace

@@ -1,7 +1,7 @@
 apiVersion: triggers.tekton.dev/v1alpha1
 kind: TriggerBinding
 metadata:
-  name: ztsc-quarkus-hello-service-app
+  name: quarkus-hello-service-app
 spec:
   params:
   - name: git-repo-url
