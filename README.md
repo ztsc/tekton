@@ -43,5 +43,39 @@ Patch pipeline service account to be able to push signature (I don't think this 
 kubectl patch serviceaccount pipeline -p "{\"imagePullSecrets\": [{\"name\": \"registry-credentials\"}]}" -n tekton-chains
 ```
 
+# Pipeline for quarkus-base-image
+
+Create the tasks
+```
+oc apply -f ./quarkus-base-image/task/
+```
+
+Create the pipeline
+```
+oc apply -f ./quarkus-base-image/pipeline/
+```
+
+An event listener and tekton trigger have not been setup yet for the quarkus base image so you need to manually start the pipeline using OpenShift console (note: default values exist for params)"
+
 # Pipeline for quarkus-hello-service microservice
 
+Create the tasks
+```
+oc apply -f ./quarkus-hello-service/task/
+```
+
+Create the pipeline
+```
+oc apply -f ./quarkus-hello-service/pipeline/
+```
+
+Create the trigger
+```
+oc apply -f ./quarkus-hello-service/trigger/
+```
+
+You will need to do a commit against the git repo to kick off the pipeline.
+The command for an empty commit is:
+```
+git commit -m "update comments in Dockerfile"
+```
