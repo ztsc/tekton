@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
-  name: create-sign-base-image-pipeline
+  name: quarkus-base-image
   annotations:
   # pipeline creates the base image, pushes it to a container registry and signs it
   # signing is done by tekton chains
