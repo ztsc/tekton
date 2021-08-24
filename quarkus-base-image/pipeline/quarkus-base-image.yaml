@@ -10,14 +10,16 @@ spec:
   params:
     - name: git-url
       description: The url for the git repository
-      default: https://github.com/ztsc/base-quarkus-image 
+      default: https://github.com/ztsc/quarkus-base-image
     - name: git-revision
       description: The git revision (branch, tag, or sha) that should be built
       default: main
     - name: dockerfile
       default: ./Dockerfile
     - name: image-url
-      default: docker.io/gkovan/base-quarkus-image   
+      default: docker.io/gkovan/quarkus-base-image
+    - name: custom-image-tag
+      default: "1.0"       
     - name: scan-image
       description: Enable the pipeline to scan the image for vulnerabilities
       default: "false"
@@ -45,7 +47,7 @@ spec:
         - name: dockerfile
           value: $(params.dockerfile)
         - name: image-url
-          value: $(params.image-url)       
+          value: $(params.image-url)         
     # - name: code-lint
     #   taskRef:
     #     name: ibm-sonar-test
@@ -95,6 +97,8 @@ spec:
           value: "$(tasks.setup.results.image-repository)"
         - name: image-tag
           value: "$(tasks.setup.results.image-tag)"
+        - name: custom-image-tag
+          value: "$(params.custom-image-tag)"         
         - name: DOCKERFILE
           value: "$(tasks.setup.results.dockerfile)"
     # - name: sign
