@@ -47,8 +47,8 @@ spec:
     - fetch-repository          
   - name: build-image
     taskRef:
-      name: buildah
-      kind: ClusterTask
+      name: buildah-custom
+      kind: Task
     params:
     - name: TLSVERIFY
       value: "false"
