@@ -16,20 +16,21 @@ spec:
   - apiVersion: tekton.dev/v1beta1
     kind: PipelineRun
     metadata:
-      name: quarkus-hello-service-app-$(uid)
+      name: quarkus-hello-service-$(uid)
     spec:
       serviceAccountName: pipeline
       pipelineRef:
         name: quarkus-hello-service
       params:
       - name: deployment-name
-        value: $(tt.params.git-repo-name)-app
+        value: $(tt.params.git-repo-name)
       - name: git-url
         value: $(tt.params.git-repo-url)
       - name: git-revision
         value: $(tt.params.git-revision)
       - name: IMAGE
-        value: image-registry.openshift-image-registry.svc:5000/dev2/$(tt.params.git-repo-name)-app
+#        value: image-registry.openshift-image-registry.svc:5000/dev2/$(tt.params.git-repo-name)-app
+        value: docker.io/gkovan/$(tt.params.git-repo-name)
       workspaces:
       - name: shared-workspace
         volumeClaimTemplate:
