@@ -1,5 +1,9 @@
 # README
 
+## Install OpenShift Pipelines Operator
+
+Install version 1.2.3 of Red Hat OpenShift Pipelines Operator
+
 ## Configure pipeline service account used by tekton
 
 Create docker registry secret
