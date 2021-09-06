@@ -78,8 +78,13 @@ Create the trigger
 oc apply -f ./quarkus-hello-service/trigger/
 ```
 
-You will need to do a commit against the git repo to kick off the pipeline.
-The command for an empty commit is:
+Expose the service to create a route
 ```
-git commit -m "update comments in Dockerfile"
+oc expose service el-quarkus-hello-service-app
+``` 
+
+You will need to do a commit against the git repo to kick off the pipeline.
+In the quarkus-hello-service, folder, enter command to do an empty commit:
+```
+git commit -m "empty-commit" --allow-empty && git push origin main
 ```
